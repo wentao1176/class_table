@@ -1,10 +1,10 @@
 {
-  "versionCode": 4,
-  "versionName": "1.3",
+  "versionCode": 5,
+  "versionName": "1.4",
   "apkUrls": [
-    "https://cdn.jsdelivr.net/gh/wentao1176/class_table@main/apk/class_table_v1.3.apk",
-    "https://raw.githubusercontent.com/wentao1176/class_table/main/apk/class_table_v1.3.apk"
+    "https://cdn.jsdelivr.net/gh/wentao1176/class_table@main/apk/class_table_v1.4.apk",
+    "https://raw.githubusercontent.com/wentao1176/class_table/main/apk/class_table_v1.4.apk"
   ],
-  "notes": "1. 修正示例课表：删除 5 门被误录的周六 / 周日课程（它们与周一、周三的课同课同教室，是调休当周的重复项）。周末本来就没课，调休改由节假日引擎自动推导\n2. 课程周次默认值与学期周数统一为 16 周（原为 20 周）\n3. 放假列的「节日名 / 放假」水印保留，用于区分「放假」与「本来没课」",
+  "notes": "1. 修正示例课表：删除 5 门被误录的周六 / 周日课程（它们与周一、周三的课同课同教室，是调休当周的重复项）。周末本来就没课，调休改由节假日引擎自动推导\n2. 课程周次默认值与学期周数统一为 16 周（原为 20 周）\n3. 更新检查改为并行拉取所有镜像并取版本号最大的一份，避免镜像缓存了旧清单时误报「已是最新」",
   "forceUpdate": false
 }

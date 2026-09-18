@@ -14,6 +14,9 @@ import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 
+import java.util.Arrays;
+import java.util.Collections;
+
 /**
  * 更新清单的解析与版本比较。
  *
@@ -109,5 +112,57 @@ public class UpdateLogicTest {
         }
         // jsDelivr 放在第一位：国内一般可直连，raw.githubusercontent 常被阻断
         assertTrue("首个地址应为 jsDelivr CDN", urls[0].contains("jsdelivr"));
+    }
+
+    // ---------------- 多镜像取最新 ----------------
+
+    private static UpdateInfo manifest(int versionCode, String url) {
+        UpdateInfo i = UpdateInfo.parse("{\"versionCode\":" + versionCode
+                + ",\"apkUrl\":\"" + url + "\"}");
+        assertNotNull(i);
+        return i;
+    }
+
+    @Test
+    public void newestManifestWinsWhenMirrorsDisagree() {
+        // jsDelivr 命中旧缓存（v3），raw 已经是最新的（v4）—— 必须取 v4，
+        // 否则用户会被告知"已是最新"而收不到更新。
+        UpdateInfo stale = manifest(3, "https://cdn.example.com/v3.apk");
+        UpdateInfo fresh = manifest(4, "https://raw.example.com/v4.apk");
+
+        UpdateInfo best = UpdateChecker.pickNewest(Arrays.asList(stale, fresh));
+        assertNotNull(best);
+        assertEquals(4, best.versionCode);
+        assertEquals("https://raw.example.com/v4.apk", best.primaryUrl());
+
+        // 顺序反过来结果一样
+        assertEquals(4, UpdateChecker.pickNewest(Arrays.asList(fresh, stale)).versionCode);
+    }
+
+    @Test
+    public void newestManifestIsPickedRegardlessOfMirrorOrder() {
+        assertEquals(9, UpdateChecker.pickNewest(Arrays.asList(
+                manifest(7, "https://a/v7.apk"),
+                manifest(9, "https://b/v9.apk"),
+                manifest(8, "https://c/v8.apk"))).versionCode);
+    }
+
+    @Test
+    public void pickNewestToleratesMissingMirrors() {
+        assertNull(UpdateChecker.pickNewest(null));
+        assertNull(UpdateChecker.pickNewest(Collections.emptyList()));
+        // 只有一个镜像挂了（null）时，仍然要用活着的那份
+        UpdateInfo only = manifest(6, "https://a/v6.apk");
+        assertEquals(6, UpdateChecker.pickNewest(Arrays.asList(null, only, null)).versionCode);
+    }
+
+    @Test
+    public void mirrorCachedOlderVersionStillReportsUpdate() {
+        // 端到端语义：缓存到 v3 的镜像 + 拿到 v4 的镜像 → 对 v3 的用户应报有更新
+        UpdateInfo best = UpdateChecker.pickNewest(Arrays.asList(
+                manifest(3, "https://cdn.example.com/v3.apk"),
+                manifest(4, "https://raw.example.com/v4.apk")));
+        assertNotNull(best);
+        assertTrue(best.isNewerThan(3));
     }
 }

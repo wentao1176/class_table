@@ -8,19 +8,28 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 读取 GitHub 仓库上的版本清单，判断是否有新版本。
  *
- * <p>清单只有几 KB，所以依次尝试若干镜像地址，任一成功即结束：
+ * <p>清单只有几百字节，所以<b>并行</b>拉取全部镜像地址，取其中 {@code versionCode} 最大的一份：
  * <ol>
  *   <li>jsDelivr CDN —— 国内一般可直连；</li>
  *   <li>raw.githubusercontent.com —— 兜底，但国内常被阻断。</li>
  * </ol>
  *
- * <p>注意 jsDelivr 对分支引用有缓存（约数小时），刚推送的新版本可能延迟可见。
+ * <p><b>为什么要取最大值而不是"第一个成功的"</b>：jsDelivr 对分支引用有缓存（最长约 12 小时），
+ * 刚推送的新版本可能延迟可见；而 raw 是近实时的但可能被墙。只认第一个成功的，就会在
+ * 「jsDelivr 命中旧缓存」时误报"已是最新"。取最大值可以让两个镜像互相纠正。
+ * 发布新版本时另外调用一次 jsDelivr purge 接口，把缓存立刻刷掉，见 README。
+ *
+ * <p>两个镜像并行拉取，整体耗时约等于单个镜像的超时时间，不会翻倍。
  */
 public class UpdateChecker {
 
@@ -63,31 +72,64 @@ public class UpdateChecker {
         return MANIFEST_URLS.clone();
     }
 
+    /**
+     * 从若干份清单里挑出 {@code versionCode} 最大的那份，全部为 null 时返回 null。
+     * 抽成纯函数是为了能在单测里直接验证「镜像缓存不一致时取最新」这条规则。
+     */
+    public static UpdateInfo pickNewest(List<UpdateInfo> candidates) {
+        UpdateInfo best = null;
+        if (candidates == null) return null;
+        for (UpdateInfo info : candidates) {
+            if (info == null) continue;
+            if (best == null || info.versionCode > best.versionCode) best = info;
+        }
+        return best;
+    }
+
     /** 后台检查更新，回调统一切回主线程。 */
     public static void check(final int currentVersionCode, final Callback cb) {
         POOL.execute(() -> {
             final Handler ui = main();
+
+            // 并行拉取所有镜像
+            List<Future<UpdateInfo>> futures = new ArrayList<>();
+            ExecutorService fan = Executors.newFixedThreadPool(MANIFEST_URLS.length);
+            try {
+                for (final String url : MANIFEST_URLS) {
+                    futures.add(fan.submit(() -> UpdateInfo.parse(httpGet(url))));
+                }
+            } catch (Exception ignored) {
+                // 提交失败不应影响已提交的任务
+            }
+
+            List<UpdateInfo> got = new ArrayList<>();
             String lastError = null;
-            for (String url : MANIFEST_URLS) {
+            for (Future<UpdateInfo> f : futures) {
                 try {
-                    UpdateInfo info = UpdateInfo.parse(httpGet(url));
+                    UpdateInfo info = f.get(TIMEOUT_MS + 2000L, TimeUnit.MILLISECONDS);
                     if (info == null) {
                         lastError = "版本清单格式不正确";
-                        continue;
+                    } else {
+                        got.add(info);
                     }
-                    final UpdateInfo found = info;
-                    ui.post(() -> {
-                        if (found.isNewerThan(currentVersionCode)) cb.onUpdateAvailable(found);
-                        else cb.onUpToDate(currentVersionCode);
-                    });
-                    return;
                 } catch (Exception e) {
-                    String m = e.getMessage();
-                    lastError = e.getClass().getSimpleName() + (m == null ? "" : ": " + m);
+                    Throwable cause = e.getCause() == null ? e : e.getCause();
+                    String m = cause.getMessage();
+                    lastError = cause.getClass().getSimpleName() + (m == null ? "" : ": " + m);
                 }
             }
-            final String reason = lastError == null ? "无法获取版本清单" : lastError;
-            ui.post(() -> cb.onFailed(reason));
+            fan.shutdownNow();
+
+            final UpdateInfo found = pickNewest(got);
+            if (found == null) {
+                final String reason = lastError == null ? "无法获取版本清单" : lastError;
+                ui.post(() -> cb.onFailed(reason));
+                return;
+            }
+            ui.post(() -> {
+                if (found.isNewerThan(currentVersionCode)) cb.onUpdateAvailable(found);
+                else cb.onUpToDate(currentVersionCode);
+            });
         });
     }
 

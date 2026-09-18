@@ -5,8 +5,8 @@
 - 应用包名：`com.xwt.schedule`
 - 最低系统：Android 7.0（API 24）；目标系统：Android 13（API 33）
 - 技术栈：Java + 原生 AndroidX + Material Components，无后端，数据仅保存在本机
-- 当前版本：**v1.3**（versionCode 4）
-- 安装包：`大学课表_v1.3.apk`（debug 签名，可直接侧载安装）
+- 当前版本：**v1.4**（versionCode 5）
+- 安装包：`大学课表_v1.4.apk`（debug 签名，可直接侧载安装）
 - 仓库：<https://github.com/wentao1176/class_table>（同时也是应用内自动更新的版本源）
 
 ## 功能一览
@@ -43,11 +43,11 @@
 
 ```json
 {
-  "versionCode": 4,
-  "versionName": "1.3",
+  "versionCode": 5,
+  "versionName": "1.4",
   "apkUrls": [
-    "https://cdn.jsdelivr.net/gh/wentao1176/class_table@main/apk/class_table_v1.3.apk",
-    "https://raw.githubusercontent.com/wentao1176/class_table/main/apk/class_table_v1.3.apk"
+    "https://cdn.jsdelivr.net/gh/wentao1176/class_table@main/apk/class_table_v1.4.apk",
+    "https://raw.githubusercontent.com/wentao1176/class_table/main/apk/class_table_v1.4.apk"
   ],
   "notes": "本次更新说明，会显示在更新对话框里",
   "forceUpdate": false
@@ -59,9 +59,34 @@
   `raw.githubusercontent.com` 作为兜底（国内常被阻断）
 - 文件名带版本号，避免 CDN 缓存到旧包
 
+#### 清单缓存：并行拉取 + 取最大 versionCode
+
+`apk/` 里的文件名带版本号所以永远不会过期，但 `update.json` 路径是固定的，
+而 **jsDelivr 对分支引用有缓存（最长约 12 小时）**，实测：
+
+```
+推送 v1.3 后立刻请求
+  cdn.jsdelivr.net/.../update.json            -> versionCode=3  (旧缓存)
+  raw.githubusercontent.com/.../update.json   -> versionCode=4  (已更新)
+```
+
+而且 **加 `?t=<时间戳>` 查询参数并不能绕过**（实测仍返回旧内容）。所以做了两件事：
+
+1. **客户端**：两个镜像**并行**拉取（整体耗时约等于单个超时，不翻倍），
+   解析后**取 `versionCode` 最大的那份**。这样 jsDelivr 命中旧缓存时，
+   raw 的新内容能纠正它；反之 raw 被墙时，jsDelivr 也能兜住。
+   只认"第一个成功的镜像"会在命中旧缓存时误报"已是最新"，这正是要避免的。
+2. **发布流程**：推完代码后调一次 jsDelivr 的刷新接口，把缓存立刻清掉：
+
+   ```bash
+   curl "https://purge.jsdelivr.net/gh/wentao1176/class_table@main/update.json"
+   # 返回 {"status":"finished", ...} 即为刷新成功
+   ```
+
 > **发布新版本的流程**：改 `app/build.gradle` 的 `versionCode` / `versionName` →
-> 构建出 apk → 放到 `apk/class_table_vX.Y.apk` → 更新 `update.json` 的 `versionCode` 与
-> `apkUrls` → 提交并推送。用户下次启动就会收到更新提示。
+> 构建出 apk → 放到 `apk/class_table_vX.Y.apk`（同时删掉旧版本包）→ 更新 `update.json`
+> 的 `versionCode` 与 `apkUrls` → 提交并推送 → **调一次 purge 接口**。
+> 用户下次启动就会收到更新提示。
 
 ### 课表页（主界面）
 
@@ -130,7 +155,7 @@
 
 ## 安装方法
 
-1. 把 `大学课表_v1.3.apk` 传到安卓手机（或直接从 GitHub 仓库 `apk/` 目录下载）
+1. 把 `大学课表_v1.4.apk` 传到安卓手机（或直接从 GitHub 仓库 `apk/` 目录下载）
 2. 文件管理器点击安装，首次需允许「安装未知来源应用」
 3. 打开后允许通知权限；国产 ROM（小米/华为/OPPO/vivo 等）建议在系统设置中允许本应用「自启动」与「通知」，以保证课前提醒在后台准时触发
 4. 想用应用内自动更新，还需在系统设置里为本应用打开「安装未知应用」——首次点更新时应用会引导你去授权
@@ -253,7 +278,7 @@ apk/                            # 各版本安装包，供应用内下载
 4. 新增 `UpdateLogicTest`（9 项）：覆盖清单解析、缺字段 / 非法 JSON 的容错、
    版本比较、多镜像地址顺序。合计 **36 项测试全部通过**。
 
-## v1.3 变更
+## v1.4 变更
 
 **修正**
 
@@ -281,11 +306,19 @@ apk/                            # 各版本安装包，供应用内下载
    「放假」和「本来就没课」这两种不同状态，与 v1.2 移除的整列灰底不是一回事；
    周六 / 周日永远不会出现该水印。
 
+4. **更新检查不再被镜像的旧缓存骗到**。原来 `UpdateChecker` 是"取第一个成功的镜像"，
+   而 jsDelivr 对分支引用最长缓存约 12 小时；实测推送后立刻请求，
+   jsDelivr 返回 `versionCode=3`（旧）而 raw 返回 `4`（新）。现在改为
+   **并行拉取所有镜像 → 取 `versionCode` 最大的那份**，两个镜像互相纠正。
+   发布流程里另外补了一步 jsDelivr purge（见上文「清单缓存」）。
+
 **测试**
 
-4. 新增 `weekendsNeverShowCourses`：断言第 1 周（无节假日、无调休）渲染出的卡片
+5. 新增 `weekendsNeverShowCourses`：断言第 1 周（无节假日、无调休）渲染出的卡片
    覆盖的星期集合恰好是 {周一…周五}，且总数为 15。
-   合计 **37 项测试全部通过**。
+6. `UpdateLogicTest` 新增 4 项覆盖多镜像选优：镜像互相矛盾时取新、与顺序无关、
+   部分镜像挂掉（返回 `null`）时仍能用活着的那份、缓存旧版的镜像不影响判定。
+   合计 **41 项测试全部通过**。
 
 > 单元测试注意：`org.json` 属于 Android 框架，普通本地单测里只有会抛 "not mocked" 的空壳，
 > 所以 `UpdateLogicTest` 用 Robolectric 运行（与 `AppRobolectricTest` 一致）。
