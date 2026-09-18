@@ -1,0 +1,10 @@
+# 统一换行符：gradlew 是 shell 脚本，一旦被转成 CRLF 在 Linux/macOS 上就跑不起来
+* text=auto eol=lf
+*.bat text eol=crlf
+
+# 二进制文件不做换行符转换
+*.png binary
+*.jpg binary
+*.jar binary
+*.apk binary
+*.keystore binary

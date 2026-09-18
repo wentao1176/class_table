@@ -1,0 +1,20 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- 日历底板 -->
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M30,34 h48 a4,4 0 0 1 4,4 v38 a6,6 0 0 1 -6,6 h-44 a6,6 0 0 1 -6,-6 v-38 a4,4 0 0 1 4,-4 z"/>
+    <!-- 顶部装订条 -->
+    <path android:fillColor="#DCEBFD"
+        android:pathData="M26,40 h56 v8 h-56 z"/>
+    <!-- 两个挂环 -->
+    <path android:fillColor="#3A7BC8" android:pathData="M40,26 h4 v12 h-4 z"/>
+    <path android:fillColor="#3A7BC8" android:pathData="M64,26 h4 v12 h-4 z"/>
+    <!-- 课表格子（三行三列圆点/色块） -->
+    <path android:fillColor="#4A8FE7" android:pathData="M33,54 h11 v9 h-11 z"/>
+    <path android:fillColor="#9CC4F4" android:pathData="M48.5,54 h11 v9 h-11 z"/>
+    <path android:fillColor="#BFD9FA" android:pathData="M64,54 h11 v9 h-11 z"/>
+    <path android:fillColor="#BFD9FA" android:pathData="M33,67 h11 v9 h-11 z"/>
+    <path android:fillColor="#4A8FE7" android:pathData="M48.5,67 h11 v9 h-11 z"/>
+    <path android:fillColor="#9CC4F4" android:pathData="M64,67 h11 v9 h-11 z"/>
+</vector>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">大学课表</string>
+    <string name="tab_today">今日</string>
+    <string name="tab_schedule">课表</string>
+    <string name="tab_courses">课程</string>
+    <string name="tab_me">我的</string>
+    <string name="channel_reminder">上课提醒</string>
+    <string name="channel_reminder_desc">在每节课上课前推送提醒通知</string>
+</resources>

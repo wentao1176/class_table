@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_today"
+        android:icon="@drawable/ic_today"
+        android:title="@string/tab_today" />
+    <item
+        android:id="@+id/nav_schedule"
+        android:icon="@drawable/ic_grid"
+        android:title="@string/tab_schedule" />
+    <item
+        android:id="@+id/nav_courses"
+        android:icon="@drawable/ic_book"
+        android:title="@string/tab_courses" />
+    <item
+        android:id="@+id/nav_me"
+        android:icon="@drawable/ic_person"
+        android:title="@string/tab_me" />
+</menu>

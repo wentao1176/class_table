@@ -1,0 +1,61 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.xwt.schedule'
+    compileSdk 33
+    buildToolsVersion "33.0.2"
+
+    defaultConfig {
+        applicationId "com.xwt.schedule"
+        minSdk 24
+        targetSdk 33
+        versionCode 3
+        versionName "1.2"
+        vectorDrawables.useSupportLibrary = true
+    }
+
+    buildFeatures {
+        // 自动更新需要读取 BuildConfig.VERSION_CODE / VERSION_NAME
+        buildConfig true
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            applicationIdSuffix ""
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+            // 工程目录含中文时，测试 Worker 默认用系统编码解析类路径会找不到测试类，这里强制 UTF-8
+            all {
+                jvmArgs '-Dfile.encoding=UTF-8'
+                systemProperty 'file.encoding', 'UTF-8'
+            }
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.9.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'androidx.recyclerview:recyclerview:1.2.1'
+
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.10.3'
+    testImplementation 'androidx.test:core:1.5.0'
+    testImplementation 'androidx.test.ext:junit:1.1.5'
+}

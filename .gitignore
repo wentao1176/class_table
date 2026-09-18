@@ -1,0 +1,23 @@
+# Gradle 构建产物
+.gradle/
+build/
+app/build/
+build-tmp/
+.gradle-build.log
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+captures/
+
+# 机器相关：含本机 Android SDK 绝对路径，不要提交
+local.properties
+
+# 签名材料，绝不入库
+*.jks
+*.keystore
+*.pepk
+
+# 系统文件
+.DS_Store
+Thumbs.db

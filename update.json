@@ -1,0 +1,10 @@
+{
+  "versionCode": 3,
+  "versionName": "1.2",
+  "apkUrls": [
+    "https://cdn.jsdelivr.net/gh/wentao1176/class_table@main/apk/class_table_v1.2.apk",
+    "https://raw.githubusercontent.com/wentao1176/class_table/main/apk/class_table_v1.2.apk"
+  ],
+  "notes": "1. 课表：周六周日没有课是常态，不再加灰底；节假日/调休只在表头以「休 / 补」角标体现\n2. 学期总周数默认改为 16 周\n3. 新增自动更新：启动时检查新版本，可在应用内直接下载安装",
+  "forceUpdate": false
+}

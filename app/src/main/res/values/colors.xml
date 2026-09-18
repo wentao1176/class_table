@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary">#4A8FE7</color>
+    <color name="primary_dark">#3A7BC8</color>
+    <color name="primary_light">#EAF3FE</color>
+    <color name="bg">#F5F6F8</color>
+    <color name="card">#FFFFFF</color>
+    <color name="text_main">#262A30</color>
+    <color name="text_sub">#9AA0A8</color>
+    <color name="text_light">#B8BDC6</color>
+    <color name="divider">#EFF0F2</color>
+    <color name="grid_line">#F1F2F4</color>
+    <color name="today_col">#F4F9FF</color>
+    <color name="dim_bg">#ECEDEF</color>
+    <color name="dim_text">#B6B9BF</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="danger">#E56B6B</color>
+</resources>
