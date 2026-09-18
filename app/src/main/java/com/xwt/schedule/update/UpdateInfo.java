@@ -6,6 +6,7 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * GitHub 仓库根目录 update.json 的解析结果。
@@ -20,12 +21,19 @@ import java.util.List;
  *     "https://raw.githubusercontent.com/wentao1176/class_table/main/apk/class_table_v1.3.apk"
  *   ],
  *   "notes": "修复……；新增……",
- *   "forceUpdate": false
+ *   "forceUpdate": false,
+ *   "size": 5594367,
+ *   "sha256": "4fd8b61e...（小写 hex）"
  * }
  * </pre>
  *
  * <p>也接受单个 {@code "apkUrl": "..."} 字符串写法。多个下载地址会按顺序尝试，
  * 因为 GitHub 直链在国内时通时不通，留个镜像能显著提高更新成功率。
+ *
+ * <p>{@code size} 与 {@code sha256} 是可选的，但**强烈建议填**：下载中途断流时，
+ * 只靠"字节数大于 0"是发现不了的，装到系统安装器那一步才会报
+ * "解析软件包时出现问题"，用户根本不知道发生了什么。填了之后客户端能当场识别出
+ * 坏包并自动换下一个镜像重试。
  *
  * <p>本类不依赖 Android API（org.json 除外），便于单测覆盖解析与版本比较逻辑。
  */
@@ -41,14 +49,30 @@ public class UpdateInfo {
     public final String notes;
     /** 为 true 时不提供"以后再说"，强制更新。 */
     public final boolean forceUpdate;
+    /** apk 的期望字节数；0 表示清单未提供。 */
+    public final long size;
+    /** apk 的期望 SHA-256（小写 hex）；"" 表示清单未提供。 */
+    public final String sha256;
 
     public UpdateInfo(int versionCode, String versionName, List<String> apkUrls,
                       String notes, boolean forceUpdate) {
+        this(versionCode, versionName, apkUrls, notes, forceUpdate, 0L, "");
+    }
+
+    public UpdateInfo(int versionCode, String versionName, List<String> apkUrls,
+                      String notes, boolean forceUpdate, long size, String sha256) {
         this.versionCode = versionCode;
         this.versionName = versionName;
         this.apkUrls = Collections.unmodifiableList(new ArrayList<>(apkUrls));
         this.notes = notes;
         this.forceUpdate = forceUpdate;
+        this.size = size;
+        this.sha256 = sha256 == null ? "" : sha256;
+    }
+
+    /** 清单是否带了完整性信息（size / sha256 至少有一个）。 */
+    public boolean hasIntegrity() {
+        return size > 0 || !sha256.isEmpty();
     }
 
     /** 首选下载地址；apkUrls 保证非空。 */
@@ -84,9 +108,15 @@ public class UpdateInfo {
             String name = o.optString("versionName", "").trim();
             if (name.isEmpty()) name = String.valueOf(code);
 
+            long size = o.optLong("size", 0L);
+            if (size < 0) size = 0L;
+            // 统一成小写，比较时才能用简单的 equals
+            String sha = o.optString("sha256", "").trim().toLowerCase(Locale.ROOT);
+
             return new UpdateInfo(code, name, urls,
                     o.optString("notes", "").trim(),
-                    o.optBoolean("forceUpdate", false));
+                    o.optBoolean("forceUpdate", false),
+                    size, sha);
         } catch (Exception e) {
             return null;
         }
