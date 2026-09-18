@@ -4,9 +4,10 @@
 
 - 应用包名：`com.xwt.schedule`
 - 最低系统：Android 7.0（API 24）；目标系统：Android 13（API 33）
-- 技术栈：Java + 原生 AndroidX + Material Components，无后端、无网络请求，数据仅保存在本机
-- 当前版本：**v1.1**（versionCode 2）
-- 安装包：`大学课表_v1.1.apk`（debug 签名，可直接侧载安装）
+- 技术栈：Java + 原生 AndroidX + Material Components，无后端，数据仅保存在本机
+- 当前版本：**v1.2**（versionCode 3）
+- 安装包：`大学课表_v1.2.apk`（debug 签名，可直接侧载安装）
+- 仓库：<https://github.com/wentao1176/class_table>（同时也是应用内自动更新的版本源）
 
 ## 功能一览
 
@@ -15,14 +16,52 @@
 数据取自国务院办公厅《关于2025年部分节假日安排的通知》《关于2026年部分节假日安排的通知》，
 内置 2025 / 2026 全部放假区间与调休上班日（未收录年份回退为「法定节日当天放假」）。
 
-- **法定节假日自动停课**：放假当天课表整列置灰并显示「休」角标与节日名水印，不排课、不推送提醒
+- **法定节假日自动停课**：放假当天不排课、不推送提醒，仅在表头以红色日期 +「休」角标体现
 - **调休上班日按课表上课**：本来是周末的调休日（如 2026-09-20 周日、2026-10-10 周六）标注「补」角标，
   并改为显示被调休星期的课表（默认按官方假期中「被占用的工作日」推导，可在「我的」页逐日改成
   按周几上课或直接设为不上课）
+
+> **为什么没有灰底**：周六、周日以及法定节假日没有课是**常态**，不是异常状态，
+> 所以不给这些列加任何特殊底色，避免把"本来就没课"渲染成"出了问题"。
+> 节假日 / 调休信息统一收敛到表头的「休 / 补」角标与日期颜色上。
 - **今日页**：放假当天显示节日大卡片与「假期后第一节课」预告；调休日标注「调休补课」
 - **课程页**：顶部提示最近一次放假 / 调休安排
 - **我的页**：新增「节假日与调休」分组，可开关上述两项行为、查看本学期全部放假与调休清单
 - **上课提醒**：按「日期」而非「课程星期」排定，放假当天不提醒，调休日照常提醒并在通知里注明
+
+### 应用内自动更新（v1.2 新增）
+
+版本源就是这个 GitHub 仓库本身，不需要额外的服务器或 GitHub Release：
+
+- 应用读取仓库根目录的 **`update.json`**，与自身 `versionCode` 比较，有新版就在应用内下载安装
+- 启动时自动检查（**24 小时内最多一次**，可在「我的」页关闭）；「我的」页也有「检查更新」可手动触发
+- 下载走应用内进度条，完成后经 `FileProvider` 拉起系统安装器；Android 8+ 若未授权「安装未知应用」
+  会先引导去授权
+- 可「忽略此版本」，忽略后不再重复弹同一个版本
+
+`update.json` 格式：
+
+```json
+{
+  "versionCode": 4,
+  "versionName": "1.3",
+  "apkUrls": [
+    "https://cdn.jsdelivr.net/gh/wentao1176/class_table@main/apk/class_table_v1.3.apk",
+    "https://raw.githubusercontent.com/wentao1176/class_table/main/apk/class_table_v1.3.apk"
+  ],
+  "notes": "本次更新说明，会显示在更新对话框里",
+  "forceUpdate": false
+}
+```
+
+- `apkUrls` 按顺序尝试（也兼容单个 `"apkUrl": "..."` 字符串写法）
+- **首选 jsDelivr CDN**：国内可直连，实测无需代理即可完整下载；
+  `raw.githubusercontent.com` 作为兜底（国内常被阻断）
+- 文件名带版本号，避免 CDN 缓存到旧包
+
+> **发布新版本的流程**：改 `app/build.gradle` 的 `versionCode` / `versionName` →
+> 构建出 apk → 放到 `apk/class_table_vX.Y.apk` → 更新 `update.json` 的 `versionCode` 与
+> `apkUrls` → 提交并推送。用户下次启动就会收到更新提示。
 
 ### 课表页（主界面）
 
@@ -31,6 +70,7 @@
 - 课程可连排多节；同一时段重叠的课程自动左右分栏
 - **非本周课程自动置灰**：单周/双周/自定义周次不上课的周次仍显示位置但变灰，与参考小程序一致
 - 顶部「‹ 第X周 ›」切换周次，点标题弹出整学期周次选择器，可一键回到本周；副标题显示本周放假/调休天数
+- 表头用「休 / 补」角标与日期颜色（放假红、调休蓝）标注节假日与调休，**列本身不加灰底**
 - 当天所在列高亮，上课时段内显示红色当前时间线
 - 右下角「+」添加课程；点课程卡片查看详情、编辑或删除（调休补课日会注明日期与原因）
 
@@ -64,9 +104,10 @@
 
 ### 我的（设置）
 
-- 学期名称、开学日期（第 1 周周日，决定当前周次自动计算）、学期总周数（16/18/20/24）、学期结束日期
+- 学期名称、开学日期（第 1 周周日，决定当前周次自动计算）、学期总周数（**默认 16 周**，可选 16/18/20/24）、学期结束日期
 - 节假日与调休：停课开关、调休上课开关、本学期放假与调休清单（可修改每个调休日按周几上课）
 - 提醒开关与提前量、通知权限状态、测试通知
+- 关于与更新：当前版本号、手动「检查更新」、启动时自动检查开关
 - 一键恢复示例课表 / 清空全部课程
 
 ## 默认作息时间（可在代码 `util/TimeTable.java` 修改）
@@ -84,9 +125,10 @@
 
 ## 安装方法
 
-1. 把 `大学课表_v1.1.apk` 传到安卓手机
+1. 把 `大学课表_v1.2.apk` 传到安卓手机（或直接从 GitHub 仓库 `apk/` 目录下载）
 2. 文件管理器点击安装，首次需允许「安装未知来源应用」
 3. 打开后允许通知权限；国产 ROM（小米/华为/OPPO/vivo 等）建议在系统设置中允许本应用「自启动」与「通知」，以保证课前提醒在后台准时触发
+4. 想用应用内自动更新，还需在系统设置里为本应用打开「安装未知应用」——首次点更新时应用会引导你去授权
 
 ## 源码构建
 
@@ -105,6 +147,23 @@ gradle testDebugUnitTest
 > 工程目录含中文时，`gradle.properties` 已加入 `android.overridePathCheck=true`，
 > `app/build.gradle` 的 `testOptions` 已强制测试进程使用 UTF-8，否则单元测试会因
 > 类路径编码问题报 `ClassNotFoundException`。
+> 另外该编码问题会让 Gradle 测试 Worker 完全找不到测试类，**更可靠的做法是把工程复制到
+> 纯 ASCII 路径再跑测试**。
+
+### 推送代码到 GitHub
+
+到 `github.com:22` 的 SSH 连接在本机常被干扰（握手成功后数据通道被 RST，
+表现为 `send-pack: unexpected disconnect`）。仓库已配置 `core.sshCommand`，
+让 SSH 走本机 HTTP 代理 + `ssh.github.com:443`：
+
+```bash
+git config core.sshCommand \
+  'ssh -o HostName=ssh.github.com -o Port=443 -o "ProxyCommand=python C:/Users/<你>/.workbuddy-ai/tools/ssh_proxy.py %h %p"'
+```
+
+`ssh_proxy.py` 是一个把 stdio 接到 HTTP `CONNECT` 隧道的小脚本。
+换机器 / 换代理端口时改这里即可（代理地址也可用 `SSH_PROXY_HOST` / `SSH_PROXY_PORT` 环境变量覆盖）。
+推送大文件（如 apk）偶尔仍会中断，**重试一次即可成功**。
 
 ## 目录结构
 
@@ -119,19 +178,27 @@ app/src/main/java/com/xwt/schedule/
 ├─ util/ChinaHoliday.java       # 中国法定节假日与调休数据（官方通知）
 ├─ util/DayPlan.java            # 结合用户设置算出「某天上不上课、按周几上课」
 ├─ util/Palette.java            # 课程卡片配色
-├─ ui/ScheduleGridView.java     # 课表网格自定义 View（休/补角标、放假列置灰）
+├─ ui/ScheduleGridView.java     # 课表网格自定义 View（休/补角标、不放假列不加灰底）
 ├─ ui/ScheduleFragment.java     # 课表页
 ├─ ui/TodayFragment.java        # 今日页
 ├─ ui/CourseListFragment.java   # 课程列表页
-├─ ui/SettingsFragment.java     # 我的/设置页（含节假日与调休）
+├─ ui/SettingsFragment.java     # 我的/设置页（含节假日与调休、检查更新）
+├─ ui/UpdateDialogs.java        # 更新提示 / 下载进度 / 授权引导对话框
 ├─ ui/CourseEditActivity.java   # 添加/编辑课程
 ├─ ui/WeekPickerDialog.java     # 周次选择器
+├─ update/UpdateInfo.java       # update.json 解析与版本比较（可单测）
+├─ update/UpdateChecker.java    # 读取远端清单，多镜像依次尝试
+├─ update/UpdateInstaller.java  # 下载 apk（多镜像重试）并拉起安装器
 └─ notify/                      # 通知渠道、AlarmManager 调度、开机重建
 
 app/src/test/java/com/xwt/schedule/
 ├─ CourseLogicTest.java         # 周次规则、作息时间纯 JVM 单测
 ├─ HolidayLogicTest.java        # 节假日/调休数据纯 JVM 单测
+├─ UpdateLogicTest.java         # 更新清单解析、坏数据容错、镜像地址
 └─ AppRobolectricTest.java      # 界面与业务集成测试（Robolectric）
+
+update.json                     # 自动更新的版本清单（发布新版本时改这里）
+apk/                            # 各版本安装包，供应用内下载
 ```
 
 ## v1.1 变更
@@ -158,3 +225,28 @@ app/src/test/java/com/xwt/schedule/
 
 6. 中国法定节假日与调休适配（见上文「节假日与调休适配」）。
 7. 「我的」页显示学期结束日期、本学期放假 / 调休天数统计，并可逐日调整调休补课安排。
+
+## v1.2 变更
+
+**修正**
+
+1. **去掉放假列的灰底**：周六、周日以及法定节假日没有课是常态，原先给放假列整列加淡灰底
+   会把"本来就没课"渲染成"异常状态"。现已移除该底色，节假日 / 调休信息只保留表头的
+   「休 / 补」角标与日期颜色（放假红、调休蓝）。
+2. **学期总周数默认 20 周改为 16 周**（`CourseStore.DEFAULT_TOTAL_WEEKS`）。
+   注意：如果之前手动改过周数，本机已保存的设置优先，需要在「我的」页里重新选一次。
+
+**新功能**
+
+3. **基于 GitHub 仓库的应用内自动更新**（见上文「应用内自动更新」）：
+   读取仓库根目录 `update.json`，比较 `versionCode`，应用内下载 apk 并经 `FileProvider`
+   拉起系统安装器；支持多镜像按顺序重试、忽略指定版本、关闭自动检查。
+   新增 `INTERNET` / `ACCESS_NETWORK_STATE` / `REQUEST_INSTALL_PACKAGES` 权限。
+
+**测试**
+
+4. 新增 `UpdateLogicTest`（9 项）：覆盖清单解析、缺字段 / 非法 JSON 的容错、
+   版本比较、多镜像地址顺序。合计 **36 项测试全部通过**。
+
+> 单元测试注意：`org.json` 属于 Android 框架，普通本地单测里只有会抛 "not mocked" 的空壳，
+> 所以 `UpdateLogicTest` 用 Robolectric 运行（与 `AppRobolectricTest` 一致）。
