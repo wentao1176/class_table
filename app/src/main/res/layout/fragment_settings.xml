@@ -32,7 +32,7 @@
                 android:id="@+id/tv_app_version"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="v1.2"
+                android:text="v1.3"
                 android:textColor="@color/text_light"
                 android:textSize="13sp" />
         </LinearLayout>

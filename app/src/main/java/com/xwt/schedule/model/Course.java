@@ -24,6 +24,9 @@ public class Course {
     public static final int TYPE_EVEN = 2;
     public static final int TYPE_CUSTOM = 3;
 
+    /** 默认学期周数（一学期 16 周）。这是全局唯一的周数基准，{@code CourseStore} 也引用它。 */
+    public static final int DEFAULT_WEEK_END = 16;
+
     public long id;
     public String name = "";
     public String teacher = "";
@@ -33,7 +36,7 @@ public class Course {
     public int sectionCount = 2;
     public int weekType = TYPE_ALL;
     public int weekStart = 1;
-    public int weekEnd = 20;
+    public int weekEnd = DEFAULT_WEEK_END;
     public List<Integer> customWeeks = new ArrayList<>();
     public int color = 0;
 
@@ -125,7 +128,7 @@ public class Course {
         c.sectionCount = o.optInt("count", 2);
         c.weekType = o.optInt("weekType", TYPE_ALL);
         c.weekStart = o.optInt("weekStart", 1);
-        c.weekEnd = o.optInt("weekEnd", 20);
+        c.weekEnd = o.optInt("weekEnd", DEFAULT_WEEK_END);
         c.color = o.optInt("color", 0);
         JSONArray arr = o.optJSONArray("customWeeks");
         if (arr != null) {

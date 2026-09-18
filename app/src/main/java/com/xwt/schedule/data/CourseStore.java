@@ -86,30 +86,29 @@ public class CourseStore {
     public synchronized void loadSamples() {
         courses.clear();
         nextId = 1;
-        // 参照截图的课表：彩色为每周上课，灰色（双周）在第 1 周不上、置灰显示
+        // 参照截图的课表：彩色为每周上课，灰色（双周）在第 1 周不上、置灰显示。
+        // 注意：周六、周日没有任何课程——周末本来就没课。原截图中周末出现的
+        // 「人工智能导论 / 模式识别 / 企业法律风险管理」是调休当周被误录的重复项
+        // （课程名、教室、节次与周一/周三的课完全一一对应），现已由
+        // DayPlan + ChinaHoliday 按国家法定节假日规范自动推导，不再写进课表。
         addSample("跨文化交际", "", "中109", Calendar.TUESDAY, 1, 2, Course.TYPE_ALL, 0);
         addSample("操作系统", "", "复303", Calendar.THURSDAY, 1, 2, Course.TYPE_ALL, 1);
         addSample("操作系统", "", "中103", Calendar.FRIDAY, 1, 2, Course.TYPE_EVEN, 1);
 
-        addSample("人工智能导论", "", "复302", Calendar.SUNDAY, 3, 2, Course.TYPE_EVEN, 2);
         addSample("人工智能导论", "", "复302", Calendar.MONDAY, 3, 2, Course.TYPE_ALL, 2);
         addSample("操作系统", "", "复304", Calendar.TUESDAY, 3, 2, Course.TYPE_ALL, 1);
         addSample("模式识别", "", "复302", Calendar.WEDNESDAY, 3, 2, Course.TYPE_ALL, 3);
         addSample("多元统计分析与SPSS应用", "", "中110", Calendar.THURSDAY, 3, 2, Course.TYPE_ALL, 4);
         addSample("模式识别", "", "中310", Calendar.FRIDAY, 3, 2, Course.TYPE_EVEN, 3);
-        addSample("模式识别", "", "复302", Calendar.SATURDAY, 3, 2, Course.TYPE_EVEN, 3);
 
-        addSample("模式识别", "", "复302", Calendar.SUNDAY, 5, 2, Course.TYPE_EVEN, 3);
         addSample("模式识别", "", "复302", Calendar.MONDAY, 5, 2, Course.TYPE_ALL, 3);
         addSample("人工智能导论", "", "复302", Calendar.WEDNESDAY, 5, 2, Course.TYPE_ALL, 2);
         addSample("物理性污染控制工程", "", "中102", Calendar.THURSDAY, 5, 2, Course.TYPE_ALL, 7);
         addSample("习近平新时代中国特色社会主义思想概论", "", "复503", Calendar.FRIDAY, 5, 2, Course.TYPE_ALL, 6);
-        addSample("人工智能导论", "", "复302", Calendar.SATURDAY, 5, 2, Course.TYPE_EVEN, 2);
 
         addSample("企业法律风险管理", "", "中119", Calendar.WEDNESDAY, 7, 2, Course.TYPE_ALL, 5);
         addSample("人工智能导论", "", "中320", Calendar.THURSDAY, 7, 2, Course.TYPE_EVEN, 2);
         addSample("组织行为学", "", "研B204", Calendar.FRIDAY, 7, 2, Course.TYPE_ALL, 4);
-        addSample("企业法律风险管理", "", "中119", Calendar.SATURDAY, 7, 2, Course.TYPE_EVEN, 5);
         persist();
     }
 
@@ -125,7 +124,7 @@ public class CourseStore {
         c.sectionCount = count;
         c.weekType = weekType;
         c.weekStart = 1;
-        c.weekEnd = 20;
+        c.weekEnd = DEFAULT_TOTAL_WEEKS;
         c.color = color;
         courses.add(c);
     }
@@ -193,8 +192,8 @@ public class CourseStore {
         sp.edit().putString("semester_name", name).apply();
     }
 
-    /** 默认学期周数：一学期 16 周。 */
-    public static final int DEFAULT_TOTAL_WEEKS = 16;
+    /** 默认学期周数：一学期 16 周。基准常量见 {@link Course#DEFAULT_WEEK_END}。 */
+    public static final int DEFAULT_TOTAL_WEEKS = Course.DEFAULT_WEEK_END;
 
     public int getTotalWeeks() {
         return sp.getInt("total_weeks", DEFAULT_TOTAL_WEEKS);

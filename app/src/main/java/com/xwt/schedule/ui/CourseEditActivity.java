@@ -99,7 +99,7 @@ public class CourseEditActivity extends AppCompatActivity {
             Course c = store.get(editingId);
             if (c != null) bindCourse(c);
         } else {
-            // 默认值：周一、第 1 节起、连排 2 节、每周、第 1-20 周
+            // 默认值：周一、第 1 节起、连排 2 节、每周、第 1 ~ 本学期周数（默认 16）周
             chipDay.check(dayIds[Calendar.MONDAY - 1]);
             chipStart.check(startIds[0]);
             chipCount.check(countIds[1]);

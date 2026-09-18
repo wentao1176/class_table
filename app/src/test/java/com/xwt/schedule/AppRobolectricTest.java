@@ -61,7 +61,18 @@ public class AppRobolectricTest {
 
     @Test
     public void samplesLoadedAndWeekOneDateMatchesReference() {
-        assertEquals(20, store.all().size());
+        assertEquals(15, store.all().size());
+        // 示例课表不含任何周六 / 周日课程：周末本来就没课，
+        // 截图中周末出现的课是调休当周的重复项，现由节假日引擎自动推导。
+        for (Course c : store.all()) {
+            assertTrue("示例课表不应包含周末课程：" + c.name,
+                    c.day != Calendar.SATURDAY && c.day != Calendar.SUNDAY);
+        }
+        // 默认学期 16 周，示例课程周次应与之对齐
+        assertEquals(CourseStore.DEFAULT_TOTAL_WEEKS, store.getTotalWeeks());
+        for (Course c : store.all()) {
+            assertEquals(CourseStore.DEFAULT_TOTAL_WEEKS, c.weekEnd);
+        }
         // 默认开学日 2026-09-13（周日），第 1 周周五应为 2026-09-18
         Calendar fri = WeekUtil.dateOf(store, 1, TimeTable.WEEKDAY_SHORT.length - 2); // 索引5=周五
         assertEquals(2026, fri.get(Calendar.YEAR));
@@ -78,8 +89,30 @@ public class AppRobolectricTest {
             scenario.onActivity(activity -> {
                 ScheduleGridView grid = activity.findViewById(R.id.grid);
                 assertNotNull(grid);
-                // 所有课程（含本周不上、置灰的课）都要渲染
-                assertEquals(20, grid.getChildCount());
+                // 所有课程（含本周不上、置灰的课）都要渲染；示例课表 15 门
+                assertEquals(15, grid.getChildCount());
+            });
+        }
+    }
+
+    @Test
+    public void weekendsNeverShowCourses() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                ScheduleGridView grid = activity.findViewById(R.id.grid);
+                // 第 1 周（2026-09-13 ~ 09-19）既没有节假日也没有调休：
+                // 15 门课全部落在周一~周五，周六 / 周日两列必须一张卡片都没有。
+                assertEquals(15, grid.getChildCount());
+                java.util.Set<Integer> days = new java.util.HashSet<>();
+                for (int i = 0; i < grid.getChildCount(); i++) {
+                    Course c = (Course) grid.getChildAt(i).getTag();
+                    assertNotNull(c);
+                    days.add(c.day);
+                }
+                assertEquals(new java.util.HashSet<>(java.util.Arrays.asList(
+                                Calendar.MONDAY, Calendar.TUESDAY, Calendar.WEDNESDAY,
+                                Calendar.THURSDAY, Calendar.FRIDAY)),
+                        days);
             });
         }
     }
@@ -107,9 +140,9 @@ public class AppRobolectricTest {
             scenario.onActivity(activity -> {
                 activity.findViewById(R.id.btn_next_week).performClick();
                 ScheduleGridView grid = activity.findViewById(R.id.grid);
-                // 第 2 周 20 门课全部处于上课周（含放假当周被隐藏的课）
+                // 第 2 周 15 门课全部处于上课周（含放假当周被隐藏的课）
                 long onCount = store.all().stream().filter(c -> c.occursInWeek(2)).count();
-                assertEquals(20, onCount);
+                assertEquals(15, onCount);
                 assertTrue(grid.getChildCount() > 0);
             });
         }
@@ -153,13 +186,13 @@ public class AppRobolectricTest {
                 activity.findViewById(R.id.btn_next_week).performClick();
                 ScheduleGridView grid = activity.findViewById(R.id.grid);
                 // 第 2 周 = 2026-09-20 ~ 09-26：
-                //   9/20（周日）调休上课 → 显示周二课表（跨文化交际、操作系统）
+                //   9/20（周日）调休上课 → 整列改显示周二课表（跨文化交际、操作系统）2 张
                 //   9/25、9/26 中秋放假 → 整列不排课
-                // 其余 5 天共 11 门次课，合计 13 张卡片
+                // 其余 4 天（周一 2、周二 2、周三 3、周四 4）共 11 门次课，合计 13 张卡片
                 assertEquals(13, grid.getChildCount());
                 // 课程本身仍然全部存在，只是放假当周不显示
                 long onCount = store.all().stream().filter(c -> c.occursInWeek(2)).count();
-                assertEquals(20, onCount);
+                assertEquals(15, onCount);
             });
         }
     }
