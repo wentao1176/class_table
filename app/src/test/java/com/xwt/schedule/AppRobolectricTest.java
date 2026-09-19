@@ -75,6 +75,10 @@ public class AppRobolectricTest {
         store.setHolidaySkipEnabled(true);
         store.setMakeupEnabled(true);
         store.clearMakeupOverrides();
+        // 关掉启动时的自动更新检查：MainActivity 一创建就会去联网拉 update.json，
+        // 而网络一慢整套测试就跟着慢（实测每个用例卡几分钟）。
+        // 单测不该依赖网络，这条链路由 UpdateLogicTest / UpdateIntegrityTest 单独覆盖。
+        store.setAutoUpdateCheckEnabled(false);
     }
 
     @Test
@@ -421,6 +425,23 @@ public class AppRobolectricTest {
                 assertEquals("重叠卡片应与普通卡片同宽（占满整列）",
                         single.getWidth(), stacked.getWidth());
                 assertTrue("卡片宽度应大于 0", stacked.getWidth() > 0);
+
+                // 折角必须真的落在右上角，并且没有戳出卡片
+                float[] tri = stacked.foldTriangle(stacked.getWidth(), stacked.getHeight());
+                assertEquals("折角的直角顶点应贴右上角", stacked.getWidth(), tri[2], 0.01f);
+                assertEquals(0f, tri[3], 0.01f);
+                assertEquals("折角应是等边直角三角", tri[2] - tri[0], tri[5] - tri[1], 0.01f);
+                for (float v : tri) {
+                    assertTrue("折角顶点跑出卡片了: " + v, v >= 0);
+                }
+                assertTrue(tri[4] <= stacked.getWidth() && tri[5] <= stacked.getHeight());
+
+                // 折角会占掉右上角，正文必须让开，否则课程名会被压在折角下面
+                assertTrue("多门课的卡片没有给折角留出顶部内边距：paddingTop="
+                                + stacked.getPaddingTop() + " foldSize=" + stacked.foldSize(),
+                        stacked.getPaddingTop() >= stacked.foldSize());
+                assertTrue("单门课的卡片不该白留内边距",
+                        single.getPaddingTop() < single.foldSize());
 
                 // 点带折角的卡片 -> 把整组课程交出去；点普通卡片 -> 单门课
                 final List<Course>[] slot = new List[]{null};

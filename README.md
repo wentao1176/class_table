@@ -299,6 +299,7 @@ app/src/main/java/com/xwt/schedule/
 ├─ util/ChinaHoliday.java       # 中国法定节假日与调休数据（官方通知）
 ├─ util/DayPlan.java            # 结合用户设置算出「某天上不上课、按周几上课」
 ├─ util/Palette.java            # 课程卡片配色
+├─ util/FoldGeometry.java       # 折角几何（纯函数，可普通 JVM 单测）
 ├─ ui/ScheduleGridView.java     # 课表网格自定义 View（休/补角标、重叠课合并成一张卡）
 ├─ ui/CourseCardView.java       # 课程卡片：右上角折角 + 门数（同一时段多门课时）
 ├─ ui/CourseDetailDialog.java   # 课程详情 / 同一时段多门课的列表弹窗
@@ -315,7 +316,7 @@ app/src/main/java/com/xwt/schedule/
 └─ notify/                      # 通知渠道、AlarmManager 调度、开机重建
 
 app/src/test/java/com/xwt/schedule/
-├─ CourseLogicTest.java         # 周次规则、作息时间纯 JVM 单测
+├─ CourseLogicTest.java         # 周次规则、作息时间、折角几何纯 JVM 单测
 ├─ HolidayLogicTest.java        # 节假日/调休数据纯 JVM 单测
 ├─ UpdateLogicTest.java         # 更新清单解析、坏数据容错、镜像地址、多镜像选优
 ├─ UpdateIntegrityTest.java     # 安装包完整性校验（截断/篡改/HTML 冒充）
@@ -477,3 +478,24 @@ apk/                            # 各版本安装包，供应用内下载
 6. 新增 `DataPersistenceTest`（9 项）、`FabLayoutTest`（3 项）、
    重叠课程合并用例，以及 `UpdateIntegrityTest` 的补充。
    合计 **66 项测试全部通过**。
+
+### 发布后的源码改进（未重新发布 APK）
+
+v1.6 的 apk 发布之后，仓库里又加了两处**不影响行为**的改进，实测 **71 项测试全部通过**：
+
+7. **折角几何抽成纯函数** `util/FoldGeometry.java`。折角本来是画在
+   `CourseCardView.onDraw()` 里的一小段坐标运算，要测它就得起 Robolectric（慢，且需要
+   Android 环境）。抽出来之后它是纯算术，能用普通 JVM 单测覆盖 ——
+   `CourseLogicTest` 因此多了 5 项：折角贴右上角、卡片很小时按比例缩、卡片再大也不超过
+   名义边长、尺寸非法时返回空、门数标签落在三角内部。取值与抽取前完全一致
+   （`NOMINAL_SIZE_DP = 14f`，同一个公式）。
+
+8. **单测不再联网**。`MainActivity` 一创建就会去拉 `update.json` 检查更新，
+   于是每个用到它的用例都要等一次网络。网络一慢整套测试就跟着慢（实测每个用例卡几分钟）。
+   现在 `AppRobolectricTest` / `FabLayoutTest` 在 `@Before` 里关掉自动更新检查，
+   这条链路由 `UpdateLogicTest` / `UpdateIntegrityTest` 单独覆盖。
+
+> 因为这两处不改变任何用户可见行为，**没有升版本号**（仍是 versionCode 7 / v1.6），
+> 所以不会给任何人弹一个没意义的更新提示。`apk/` 里那份 v1.6 安装包仍是发布产物；
+> 从当前源码重新构建得到的 apk 字节会不同（多了一个类和几项测试），但行为一致。
+> 下一次真正有功能变化时再一起升版本。

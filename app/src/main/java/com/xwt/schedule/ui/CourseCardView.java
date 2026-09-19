@@ -10,6 +10,7 @@ import android.graphics.Typeface;
 import androidx.appcompat.widget.AppCompatTextView;
 
 import com.xwt.schedule.model.Course;
+import com.xwt.schedule.util.FoldGeometry;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -51,7 +52,7 @@ public class CourseCardView extends AppCompatTextView {
         super(context);
         float density = getResources().getDisplayMetrics().density;
         cornerRadius = 6 * density;
-        foldSize = 14 * density;
+        foldSize = FoldGeometry.NOMINAL_SIZE_DP * density;
 
         foldPaint.setStyle(Paint.Style.FILL);
         creasePaint.setStyle(Paint.Style.STROKE);
@@ -61,9 +62,22 @@ public class CourseCardView extends AppCompatTextView {
         countPaint.setTypeface(Typeface.DEFAULT_BOLD);
     }
 
-    /** 折角占掉的宽度，调用方据此给顶部留出避让内边距。 */
+    /** 折角的名义边长（dp 转 px）。调用方据此给正文留出避让的顶部内边距。 */
     public float foldSize() {
         return foldSize;
+    }
+
+    /** 折角在具体尺寸下的实际边长；卡片太小时按比例缩，不撑破卡片。 */
+    public float foldSizeFor(int w, int h) {
+        return FoldGeometry.sizeFor(w, h, foldSize);
+    }
+
+    /**
+     * 折角三角的三个顶点 {@code (x0,y0, x1,y1, x2,y2)}，相对卡片左上角。
+     * 实际算法在 {@link FoldGeometry} 里，那边是纯函数，可以用普通 JVM 单测覆盖。
+     */
+    public float[] foldTriangle(int w, int h) {
+        return FoldGeometry.triangle(w, h, foldSize);
     }
 
     /**
@@ -104,7 +118,7 @@ public class CourseCardView extends AppCompatTextView {
         int w = getWidth();
         int h = getHeight();
         if (w <= 0 || h <= 0) return;
-        float s = Math.min(foldSize, Math.min(w, h) * 0.5f);
+        float s = foldSizeFor(w, h);
         if (s <= 2) return;
 
         // 折角要跟着卡片的圆角走，所以先裁到圆角矩形里
@@ -115,21 +129,22 @@ public class CourseCardView extends AppCompatTextView {
         canvas.clipPath(clipPath);
 
         // 右上角那一块"翻起来的纸角"
+        float[] t = foldTriangle(w, h);
         Path corner = new Path();
-        corner.moveTo(w - s, 0);
-        corner.lineTo(w, 0);
-        corner.lineTo(w, s);
+        corner.moveTo(t[0], t[1]);
+        corner.lineTo(t[2], t[3]);
+        corner.lineTo(t[4], t[5]);
         corner.close();
         canvas.drawPath(corner, foldPaint);
 
         // 折痕：沿斜边描一条略深的线，平面三角形才有"折过来"的感觉
-        canvas.drawLine(w - s, 0, w, s, creasePaint);
+        canvas.drawLine(t[0], t[1], t[4], t[5], creasePaint);
         canvas.restore();
 
         // 门数画在三角内部
         String label = stackCount > 9 ? "9+" : String.valueOf(stackCount);
-        float cx = w - s * 0.38f;
-        float cy = s * 0.40f - (countPaint.descent() + countPaint.ascent()) / 2f;
-        canvas.drawText(label, cx, cy, countPaint);
+        float[] c = FoldGeometry.labelCenter(w, h, foldSize);
+        float cy = c[1] - (countPaint.descent() + countPaint.ascent()) / 2f;
+        canvas.drawText(label, c[0], cy, countPaint);
     }
 }

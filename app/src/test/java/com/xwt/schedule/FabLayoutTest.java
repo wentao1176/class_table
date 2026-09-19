@@ -53,6 +53,14 @@ public class FabLayoutTest {
         layout(activity);
     }
 
+    /** 单测不联网：关掉启动时的自动更新检查，否则网络一慢整套测试跟着卡。 */
+    @org.junit.Before
+    public void disableNetworkChecks() {
+        com.xwt.schedule.data.CourseStore
+                .get(androidx.test.core.app.ApplicationProvider.getApplicationContext())
+                .setAutoUpdateCheckEnabled(false);
+    }
+
     @Test
     public void addButtonIsFullyOnScreenAndClearOfTheBottomNav() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
