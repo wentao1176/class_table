@@ -1,9 +1,11 @@
 package com.xwt.schedule;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -16,8 +18,10 @@ import androidx.fragment.app.FragmentTransaction;
 import androidx.lifecycle.Lifecycle;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.xwt.schedule.data.CourseStore;
 import com.xwt.schedule.notify.AlarmScheduler;
+import com.xwt.schedule.ui.CourseEditActivity;
 import com.xwt.schedule.ui.CourseListFragment;
 import com.xwt.schedule.ui.ScheduleFragment;
 import com.xwt.schedule.ui.SettingsFragment;
@@ -52,11 +56,17 @@ public class MainActivity extends AppCompatActivity {
 
     private Fragment current;
     private String currentTag = TAG_SCHEDULE;
+    private FloatingActionButton fabAdd;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        fabAdd = findViewById(R.id.fab_add);
+        // 「课表」和「课程」两页都可以直接加课；「今日」「我的」不需要
+        fabAdd.setOnClickListener(v ->
+                startActivity(new Intent(this, CourseEditActivity.class)));
 
         FragmentManager fm = getSupportFragmentManager();
         todayFragment = (TodayFragment) fm.findFragmentByTag(TAG_TODAY);
@@ -169,7 +179,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void switchTo(@Nullable Fragment target) {
-        if (target == null || target == current) return;
+        if (target == null) return;
+        // 即使重复点同一个 Tab 也要保证按钮状态是对的（下面会提前 return）
+        updateFabVisibility(target);
+        if (target == current) return;
         FragmentManager fm = getSupportFragmentManager();
         FragmentTransaction ft = fm.beginTransaction();
         if (current != null && current.isAdded()) {
@@ -196,6 +209,15 @@ public class MainActivity extends AppCompatActivity {
         current = target;
         currentTag = tagOf(target);
         if (target instanceof Refreshable) ((Refreshable) target).onRefresh();
+    }
+
+    /** 加课按钮只在「课表」「课程」两页出现，其余页面隐藏。 */
+    private void updateFabVisibility(@Nullable Fragment target) {
+        if (fabAdd == null) return;
+        boolean show = target == scheduleFragment || target == courseListFragment;
+        // 用 setVisibility 而不是 show()/hide()：后者带缩放动画，
+        // 动画期间视图仍是 VISIBLE，在测试里会造成不确定的状态。
+        fabAdd.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
     @Override

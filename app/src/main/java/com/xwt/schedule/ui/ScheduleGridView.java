@@ -10,7 +10,6 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
 
 import com.xwt.schedule.data.CourseStore;
 import com.xwt.schedule.model.Course;
@@ -28,8 +27,11 @@ import java.util.Map;
 /**
  * 周课表网格：左侧节次时间列 + 周日~周六 7 列 + 课程卡片。
  *
- * <p>非本周课程按参考小程序样式置灰显示；同学段重叠课程自动左右分栏。
- * 表头按中国法定节假日适配：放假当天标注「休」并整列留空，调休上班日标注「补」
+ * <p>非本周课程置灰显示。同一时段有多门课时<b>不再左右分栏</b>，而是合并成一张整宽卡片，
+ * 右上角画折角并标出门数，点一下把该时段的全部课程列出来 —— 一列只有 40 多 dp 宽，
+ * 切成窄条之后课程名会被截断到失去意义。
+ *
+ * <p>表头按中国法定节假日适配：放假当天标注「休」并整列留空，调休上班日标注「补」
  * 且改为显示被调休星期的课表。
  */
 public class ScheduleGridView extends ViewGroup {
@@ -55,12 +57,18 @@ public class ScheduleGridView extends ViewGroup {
     private OnCourseClickListener listener;
 
     public interface OnCourseClickListener {
+        /** 点到的时段只有一门课。 */
         void onCourseClick(Course c);
+
+        /** 点到的时段挤了多门课，交给调用方把全部列出来。 */
+        void onCoursesClick(List<Course> courses);
     }
 
     private static class CardItem {
         View view;
         RectF rect = new RectF();
+        /** 这张卡片代表的一门或多门课（同一时段重叠时会有多门）。 */
+        List<Course> courses = new ArrayList<>();
     }
 
     public ScheduleGridView(Context ctx) {
@@ -198,11 +206,9 @@ public class ScheduleGridView extends ViewGroup {
                     int sx = Integer.compare(dayCourses.get(x).startSection, dayCourses.get(y).startSection);
                     return sx != 0 ? sx : Long.compare(dayCourses.get(x).id, dayCourses.get(y).id);
                 });
-                int size = g.size();
-                for (int idx = 0; idx < size; idx++) {
-                    Course c = dayCourses.get(g.get(idx));
-                    addCard(c, col, colW, idx, size);
-                }
+                List<Course> group = new ArrayList<>(g.size());
+                for (int idx : g) group.add(dayCourses.get(idx));
+                addCard(group, col, colW);
             }
         }
         requestLayout();
@@ -223,13 +229,30 @@ public class ScheduleGridView extends ViewGroup {
         return (w - labelW) / 7;
     }
 
-    private void addCard(Course c, int col, int colW, int idx, int clusterSize) {
-        boolean on = c.occursInWeek(week);
+    /**
+     * 给一个「时段分组」画一张整宽卡片。
+     *
+     * <p>分组里有多门课时不再左右分栏，而是只显示第一门，并在右上角画折角 + 门数；
+     * 点一下由调用方把这一时段的全部课程列出来。
+     * 一列只有 40 多 dp 宽，切成两条之后课程名只剩两三个字，比不显示还糟。
+     */
+    private void addCard(List<Course> group, int col, int colW) {
+        Course c = group.get(0);
+        int stackCount = group.size();
+        boolean on = false;
+        for (Course g : group) {
+            if (g.occursInWeek(week)) {
+                on = true;
+                break;
+            }
+        }
 
-        TextView tv = new TextView(getContext());
+        CourseCardView tv = new CourseCardView(getContext());
         tv.setGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL);
         int pad = dp(3);
-        tv.setPadding(pad, dp(4), pad, pad);
+        // 有折角时把正文往下压一点，免得课程名钻到折角下面
+        int extraTop = stackCount > 1 ? (int) Math.ceil(tv.foldSize()) : 0;
+        tv.setPadding(pad, dp(4) + extraTop, pad, pad);
         tv.setIncludeFontPadding(false);
         tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, c.sectionCount >= 2 ? 10.5f : 10f);
         tv.setMaxLines(c.sectionCount >= 2 ? 4 : 2);
@@ -253,17 +276,26 @@ public class ScheduleGridView extends ViewGroup {
             tv.setTypeface(Typeface.DEFAULT);
         }
         tv.setBackground(bg);
-        tv.setTag(c);
+
+        // 把整组课程挂到卡片上：一门课不画折角，多门课右上角出现折角 + 门数
+        tv.setCourses(group);
+        if (stackCount > 1) {
+            int accent = on ? Palette.fg(c.color) : Palette.DIM_FG;
+            tv.setFoldColors(accent, Palette.strong(accent), 0xFFFFFFFF);
+        }
+        final List<Course> slot = group;
         tv.setOnClickListener(v -> {
-            if (listener != null) listener.onCourseClick((Course) v.getTag());
+            if (listener == null) return;
+            if (slot.size() == 1) listener.onCourseClick(slot.get(0));
+            else listener.onCoursesClick(slot);
         });
 
-        float subW = colW / (float) clusterSize;
-        float left = labelW + col * colW + idx * subW + cardGap;
+        float left = labelW + col * colW + cardGap;
         float top = headerH + (c.startSection - 1) * sectionH + cardGap;
         CardItem item = new CardItem();
         item.view = tv;
-        item.rect.set(left, top, left + subW - 2 * cardGap,
+        item.courses = slot;
+        item.rect.set(left, top, left + colW - 2 * cardGap,
                 top + c.sectionCount * sectionH - 2 * cardGap);
         cards.add(item);
         addView(tv);

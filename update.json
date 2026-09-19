@@ -1,12 +1,12 @@
 {
-  "versionCode": 6,
-  "versionName": "1.5",
+  "versionCode": 7,
+  "versionName": "1.6",
   "apkUrls": [
-    "https://cdn.jsdelivr.net/gh/wentao1176/class_table@main/apk/class_table_v1.5.apk",
-    "https://raw.githubusercontent.com/wentao1176/class_table/main/apk/class_table_v1.5.apk"
+    "https://cdn.jsdelivr.net/gh/wentao1176/class_table@main/apk/class_table_v1.6.apk",
+    "https://raw.githubusercontent.com/wentao1176/class_table/main/apk/class_table_v1.6.apk"
   ],
-  "notes": "1. 修正示例课表：删除 5 门被误录的周六 / 周日课程（它们与周一、周三的课同课同教室，是调休当周的重复项）。周末本来就没课，调休改由节假日引擎自动推导\n2. 课程周次默认值与学期周数统一为 16 周（原为 20 周）\n3. 更新检查改为并行拉取所有镜像并取版本号最大的一份，避免镜像缓存了旧清单时误报「已是最新」\n4. 安装包下载后校验完整性（Content-Length / 大小 / zip 魔数 / sha256），下载不完整会自动换下一个镜像重试，不再让系统安装器报「解析软件包时出现问题」",
+  "notes": "1. 升级不再有任何丢课表的风险：数据存在应用自己的存储里，覆盖安装不碰它；另外加了自动备份，主数据万一损坏会自动回退到上一版，坏字节也会留档\n2. 修复右下角加号按钮看不见（按钮被底部导航栏盖住了大半）\n3. 同一时段多门课不再左右切成窄条，改成一张整宽卡片 + 右上角折角标出门数，点一下列出该时段的全部课程\n4. 课程详情弹窗重做：课程配色色带 + 分行信息，不再是纯白一片",
   "forceUpdate": false,
-  "size": 5595747,
-  "sha256": "03a5d19efe9a74ebf83e81e2c73b9e8084ea955645ff15da974e09a16a3b6a12"
+  "size": 5605428,
+  "sha256": "368327075b049cb1e1442c0dc3f1f0e500abab4ea262f2fa45b966a1e9db8f73"
 }

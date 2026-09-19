@@ -3,6 +3,7 @@ package com.xwt.schedule;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import android.app.Notification;
@@ -21,6 +22,7 @@ import com.xwt.schedule.data.CourseStore;
 import com.xwt.schedule.model.Course;
 import com.xwt.schedule.notify.AlarmScheduler;
 import com.xwt.schedule.notify.NotificationHelper;
+import com.xwt.schedule.ui.CourseCardView;
 import com.xwt.schedule.ui.CourseEditActivity;
 import com.xwt.schedule.ui.ScheduleGridView;
 import com.xwt.schedule.util.DayPlan;
@@ -44,6 +46,22 @@ import static org.robolectric.Shadows.shadowOf;
 @Config(sdk = 33)
 public class AppRobolectricTest {
 
+    /**
+     * <b>本类里的断言一律不许依赖"今天"。</b>
+     *
+     * <p>踩过的坑：{@code todayTabShowsFridayWeekOneCourses} 写死了「第 1 周周五有 2 节课」，
+     * 2026-09-18 那天是绿的，第二天到了周六就自己变成 0 挂掉了 —— 测试跟真实日期耦合，
+     * 等于给自己埋了一颗定时炸弹。
+     *
+     * <p>试过冻结时钟：Robolectric 4.10 默认的 PAUSED looper 模式下，
+     * {@code SystemClock.setCurrentTimeMillis()} <b>返回 true 但根本不改时钟</b>
+     * （实测 {@code new Date()} 前后完全一样），{@code ShadowSystemClock} 与
+     * {@code ShadowSystem} 也没有可用的 setter。所以不能指望冻结时钟。
+     *
+     * <p>正确做法：要么用 {@link WeekUtil#weekOfDate} 这类纯函数按显式日期验证，
+     * 要么按"今天实际是什么"来造数据 —— 见
+     * {@link #todayTabListsTheCoursesOfTheEffectiveDay()}。
+     */
     private Context ctx;
     private CourseStore store;
 
@@ -79,8 +97,17 @@ public class AppRobolectricTest {
         assertEquals(Calendar.SEPTEMBER, fri.get(Calendar.MONTH));
         assertEquals(18, fri.get(Calendar.DAY_OF_MONTH));
         assertEquals(Calendar.FRIDAY, fri.get(Calendar.DAY_OF_WEEK));
-        // 2026-09-18 处于第 1 周
-        assertEquals(1, WeekUtil.currentWeek(store));
+        // 日期→周次用显式日期验证（weekOfDate 是纯函数）。
+        // 这里原来写的是 WeekUtil.currentWeek(store)，那是在断言"今天恰好是第 1 周"，
+        // 学期一开始往前走就会挂 —— 日期相关的断言一律不许依赖"今天"。
+        assertEquals(1, WeekUtil.weekOfDate(store, WeekUtil.parse("2026-09-18")));
+        assertEquals(1, WeekUtil.weekOfDate(store, WeekUtil.parse("2026-09-13")));
+        assertEquals(2, WeekUtil.weekOfDate(store, WeekUtil.parse("2026-09-20")));
+        assertEquals(16, WeekUtil.weekOfDate(store, WeekUtil.parse("2027-01-02")));
+        assertEquals("学期结束后应夹在最后一周", 16,
+                WeekUtil.weekOfDate(store, WeekUtil.parse("2027-06-01")));
+        assertEquals("开学前应夹在第 1 周", 1,
+                WeekUtil.weekOfDate(store, WeekUtil.parse("2026-01-01")));
     }
 
     @Test
@@ -105,9 +132,8 @@ public class AppRobolectricTest {
                 assertEquals(15, grid.getChildCount());
                 java.util.Set<Integer> days = new java.util.HashSet<>();
                 for (int i = 0; i < grid.getChildCount(); i++) {
-                    Course c = (Course) grid.getChildAt(i).getTag();
-                    assertNotNull(c);
-                    days.add(c.day);
+                    CourseCardView card = (CourseCardView) grid.getChildAt(i);
+                    for (Course c : card.getCourses()) days.add(c.day);
                 }
                 assertEquals(new java.util.HashSet<>(java.util.Arrays.asList(
                                 Calendar.MONDAY, Calendar.TUESDAY, Calendar.WEDNESDAY,
@@ -117,19 +143,37 @@ public class AppRobolectricTest {
         }
     }
 
+    /**
+     * 今日页只列「今天生效的星期」的课。
+     *
+     * <p>刻意不假设今天是周几 —— 旧版本写死「第 1 周周五 2 节课」，2026-09-19 一到周六
+     * 就自己挂了。这里改成按 {@link DayPlan#effectiveDayOfWeek} 的实际结果造数据：
+     * 在"今天生效的星期"上放两门课，再在别的星期放一门做干扰，看页面有没有真的按星期过滤。
+     */
     @Test
-    public void todayTabShowsFridayWeekOneCourses() {
+    public void todayTabListsTheCoursesOfTheEffectiveDay() {
+        int effective = DayPlan.effectiveDayOfWeek(store, new Date());
+
+        store.clearAll();
+        if (effective != 0) {
+            newCourse("今天的课A", "中101", effective, 1, 2, 0);
+            newCourse("今天的课B", "中102", effective, 5, 2, 1);
+            // 干扰项：确保页面是按星期过滤，而不是把课表全列出来
+            int other = effective == Calendar.MONDAY ? Calendar.TUESDAY : Calendar.MONDAY;
+            newCourse("别的天的课", "中103", other, 1, 2, 2);
+        }
+        final int expected = effective == 0 ? 0 : 2;
+
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
                 BottomNavigationView nav = activity.findViewById(R.id.bottom_nav);
                 nav.setSelectedItemId(R.id.nav_today);
                 RecyclerView rv = activity.findViewById(R.id.rv_today);
                 assertNotNull(rv.getAdapter());
-                // 第1周周五实际上课：习概（5-6节）、组织行为学（7-8节），双周课本周不上
-                assertEquals(2, rv.getAdapter().getItemCount());
+                assertEquals("今日页应只列今天生效星期的课（今天生效星期=" + effective + "）",
+                        expected, rv.getAdapter().getItemCount());
                 TextView name = activity.findViewById(R.id.tv_next_name);
                 assertNotNull(name.getText());
-                assertTrue(name.getText().length() > 0);
             });
         }
     }
@@ -138,6 +182,7 @@ public class AppRobolectricTest {
     public void weekTwoShowsEvenWeekCourses() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
+                gotoWeekOne(activity);
                 activity.findViewById(R.id.btn_next_week).performClick();
                 ScheduleGridView grid = activity.findViewById(R.id.grid);
                 // 第 2 周 15 门课全部处于上课周（含放假当周被隐藏的课）
@@ -183,6 +228,7 @@ public class AppRobolectricTest {
     public void weekTwoAppliesHolidayAndMakeupRules() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
+                gotoWeekOne(activity);
                 activity.findViewById(R.id.btn_next_week).performClick();
                 ScheduleGridView grid = activity.findViewById(R.id.grid);
                 // 第 2 周 = 2026-09-20 ~ 09-26：
@@ -315,5 +361,91 @@ public class AppRobolectricTest {
         Notification n = shadow.getAllNotifications().get(0);
         assertEquals("class_reminder", n.getChannelId());
         assertNotNull(n.contentIntent);
+    }
+
+    /**
+     * 把课表页确定性地退回到第 1 周。
+     *
+     * <p>页面初始显示的是 {@code WeekUtil.currentWeek()}，也就是"今天在第几周" ——
+     * 直接点一次「下一周」并不能保证到第 2 周。连点「上一周」会停在第 1 周
+     * （再往前会提示"已经是第 1 周了"），于是下一步一定是第 2 周，与今天无关。
+     */
+    private static void gotoWeekOne(MainActivity activity) {
+        View prev = activity.findViewById(R.id.btn_prev_week);
+        for (int i = 0; i < 20; i++) prev.performClick();
+    }
+
+    // ---------------- 同一时段多门课 ----------------
+
+    private Course newCourse(String name, String room, int day, int start, int count, int color) {
+        Course c = new Course();
+        c.name = name;
+        c.location = room;
+        c.day = day;
+        c.startSection = start;
+        c.sectionCount = count;
+        c.weekType = Course.TYPE_ALL;
+        c.weekStart = 1;
+        c.weekEnd = store.getTotalWeeks();
+        c.color = color;
+        store.add(c);
+        return c;
+    }
+
+    @Test
+    public void overlappingCoursesShareOneCardInsteadOfBeingSplit() {
+        store.clearAll();
+        newCourse("数据库系统", "复201", Calendar.MONDAY, 3, 2, 0);
+        newCourse("编译原理", "复202", Calendar.MONDAY, 3, 2, 1);   // 与上一门完全重叠
+        newCourse("大学英语", "中101", Calendar.MONDAY, 7, 2, 2);   // 不重叠
+
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                ScheduleGridView grid = activity.findViewById(R.id.grid);
+                // 重叠的两门合成一张卡 + 单独一门 = 2 张（旧实现会切成 3 张窄卡）
+                assertEquals(2, grid.getChildCount());
+
+                CourseCardView stacked = null, single = null;
+                for (int i = 0; i < grid.getChildCount(); i++) {
+                    CourseCardView card = (CourseCardView) grid.getChildAt(i);
+                    if (card.getStackCount() > 1) stacked = card;
+                    else single = card;
+                }
+                assertNotNull("重叠的时段应该出现一张带折角的卡片", stacked);
+                assertNotNull(single);
+                assertEquals(2, stacked.getStackCount());
+                assertEquals(2, stacked.getCourses().size());
+                assertEquals(1, single.getStackCount());
+
+                // 关键：合并后的卡片要占满整列，不能再被切成一半
+                assertEquals("重叠卡片应与普通卡片同宽（占满整列）",
+                        single.getWidth(), stacked.getWidth());
+                assertTrue("卡片宽度应大于 0", stacked.getWidth() > 0);
+
+                // 点带折角的卡片 -> 把整组课程交出去；点普通卡片 -> 单门课
+                final List<Course>[] slot = new List[]{null};
+                final Course[] one = new Course[]{null};
+                grid.setOnCourseClickListener(new ScheduleGridView.OnCourseClickListener() {
+                    @Override
+                    public void onCourseClick(Course c) {
+                        one[0] = c;
+                    }
+
+                    @Override
+                    public void onCoursesClick(List<Course> courses) {
+                        slot[0] = courses;
+                    }
+                });
+
+                stacked.performClick();
+                assertNotNull("点重叠卡片应触发 onCoursesClick", slot[0]);
+                assertEquals(2, slot[0].size());
+                assertNull("重叠卡片不该走单门课回调", one[0]);
+
+                single.performClick();
+                assertNotNull(one[0]);
+                assertEquals("大学英语", one[0].name);
+            });
+        }
     }
 }

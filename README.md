@@ -5,8 +5,8 @@
 - 应用包名：`com.xwt.schedule`
 - 最低系统：Android 7.0（API 24）；目标系统：Android 13（API 33）
 - 技术栈：Java + 原生 AndroidX + Material Components，无后端，数据仅保存在本机
-- 当前版本：**v1.5**（versionCode 6）
-- 安装包：`大学课表_v1.5.apk`（debug 签名，可直接侧载安装）
+- 当前版本：**v1.6**（versionCode 7）
+- 安装包：`大学课表_v1.6.apk`（debug 签名，可直接侧载安装）
 - 仓库：<https://github.com/wentao1176/class_table>（同时也是应用内自动更新的版本源）
 
 ## 功能一览
@@ -43,16 +43,16 @@
 
 ```json
 {
-  "versionCode": 6,
-  "versionName": "1.5",
+  "versionCode": 7,
+  "versionName": "1.6",
   "apkUrls": [
-    "https://cdn.jsdelivr.net/gh/wentao1176/class_table@main/apk/class_table_v1.5.apk",
-    "https://raw.githubusercontent.com/wentao1176/class_table/main/apk/class_table_v1.5.apk"
+    "https://cdn.jsdelivr.net/gh/wentao1176/class_table@main/apk/class_table_v1.6.apk",
+    "https://raw.githubusercontent.com/wentao1176/class_table/main/apk/class_table_v1.6.apk"
   ],
   "notes": "本次更新说明，会显示在更新对话框里",
   "forceUpdate": false,
-  "size": 5594367,
-  "sha256": "4fd8b61ec6c37676be94abddec96964f"
+  "size": 5605428,
+  "sha256": "368327075b049cb1e1442c0dc3f1f0e500abab4ea262f2fa45b966a1e9db8f73"
 }
 ```
 
@@ -111,7 +111,7 @@
 > 从 CDN 下载一遍核对 md5/sha256。用户下次启动就会收到更新提示。
 >
 > ```bash
-> APK=apk/class_table_v1.5.apk
+> APK=apk/class_table_v1.6.apk
 > echo "size   = $(stat -c%s "$APK")"
 > echo "sha256 = $(sha256sum "$APK" | cut -d' ' -f1)"
 > ```
@@ -124,12 +124,71 @@
 
 - 周日~周六 7 列网格，左侧标注 1~11 节节次与上课/下课时间
 - 课程卡片显示课程名与教室（@楼室号），10 种马卡龙配色可选
-- 课程可连排多节；同一时段重叠的课程自动左右分栏
+- 课程可连排多节
+- **同一时段多门课合并成一张卡**，右上角画折角（褶皱）并标出门数，点一下把该时段的全部课程列出来。
+  早期版本是左右分栏，但课表一列只有 40 多 dp 宽，切成两条后课程名只剩两三个字，比不显示还糟
 - **非本周课程自动置灰**：单周/双周/自定义周次不上课的周次仍显示位置但变灰，与参考小程序一致
 - 顶部「‹ 第X周 ›」切换周次，点标题弹出整学期周次选择器，可一键回到本周；副标题显示本周放假/调休天数
 - 表头用「休 / 补」角标与日期颜色（放假红、调休蓝）标注节假日与调休，**列本身不加灰底**
 - 当天所在列高亮，上课时段内显示红色当前时间线
-- 右下角「+」添加课程；点课程卡片查看详情、编辑或删除（调休补课日会注明日期与原因）
+- 右下角「+」添加课程（固定在导航栏上方，见下文「加课按钮为什么放在 Activity 层」）
+- 点课程卡片弹出详情：顶部一条课程配色的色带放课程名，下面按时间 / 周次 / 教室 / 教师分行，
+  调休补课会额外用浅蓝提示条说明「为什么这门课出现在这个星期」
+
+### 升级为什么不会丢课表
+
+这是被专门问过的问题，所以把机制写清楚。
+
+**数据存在哪：** 全部课表和设置都在本应用的 `SharedPreferences`（`schedule_data`）里，
+路径由**包名**决定。安装新版本 apk 只是替换代码，不会碰这个目录 ——
+所以**同包名 + 同签名的升级是原地覆盖，课表原样保留**。
+
+**示例课表不会覆盖老用户的数据：** 示例数据只在**第一次安装**时写入一次，
+靠一个 `initialized` 标记守住。老用户升级后不会突然变回示例课表。
+
+**唯一会丢数据的情况是签名不一致** —— 那 Android 会直接拒绝覆盖安装，必须先卸载，
+而卸载才会清数据。所以**发布用的签名密钥必须固定**，不要换。当前用的是 debug 签名
+（`~/.android/debug.keystore`），只要一直从同一台机器/同一个密钥构建就没问题；
+换机器构建前先把 `~/.android/debug.keystore` 拷过去。
+
+**再加一层保险（v1.6）：** 万一某次写入异常把数据写坏，用户打开就是空课表，
+这种事光靠"正常情况不会发生"是防不住的。所以 `CourseStore` 里做了三件事：
+
+| 机制 | 作用 |
+| --- | --- |
+| 每次落盘前把上一版存进 `courses_json_backup` | 随时能退回上一版 |
+| 启动时主数据解析失败就回退到备份，并写回主存储 | 用户看到的是课表，不是一个错误 |
+| 主数据读不出来时**绝不**把空列表覆盖上去，原始字节另存 `courses_json_corrupt` | 不冲掉用户唯一的那份数据 |
+
+「清空所有课程」会把备份一起删掉 —— 否则下次启动会被"恢复"回来，等于删不掉。
+`DataPersistenceTest`（9 项）覆盖了正常重启、编辑/删除后重启、示例只播种一次、
+设置项持久化，以及主数据损坏 / 无备份 / 截断 JSON 三条异常路径。
+
+### 加课按钮为什么放在 Activity 层
+
+按钮在 `activity_main.xml`，不在各个 Fragment 里。
+
+原来它写在 `fragment_schedule.xml` 里，用 `android:layout_marginBottom="92dp"` 去躲底部导航栏。
+但 Fragment 的根布局铺满整屏（包括导航栏后面），它自己算不出导航栏有多高，
+只能靠一个写死的数字 —— 而这个数字还**根本没生效**：
+
+```xml
+android:layout_margin="20dp"        <!-- 简写 -->
+android:layout_marginBottom="92dp"  <!-- 被简写吃掉了 -->
+```
+
+Android 的 `MarginLayoutParams` **只有在没有 `layout_margin` 时才去读单边 margin**，
+所以实际底部只剩 20dp。实测按钮矩形 `2264~2320`，导航栏从 `2284` 开始 ——
+按钮被盖住 64%，用户报的「加号看不见」就是这个。
+
+移到 Activity 层的 CoordinatorLayout 后，它和底部导航栏成了兄弟节点，
+位置由 `@dimen/fab_bottom_margin`（导航栏 56dp + 16dp 间隙）决定，一眼能看懂。
+`FabLayoutTest`（3 项）会断言按钮**完整落在屏幕内、底边不超过导航栏顶边、
+底色与图标不同色**（后者防的是"白底白字"这类隐形按钮）。
+
+> 也试过 CoordinatorLayout 的 `layout_insetEdge` + `layout_dodgeInsetEdges` 自动避让，
+> 但实测按钮位置一点没变（量出来的矩形完全相同）。**不用一个自己验证不了的机制**，
+> 所以最后还是按导航栏高度显式定位，并让测试盯着它。
 
 ### 今日页
 
@@ -187,7 +246,7 @@
 
 ## 安装方法
 
-1. 把 `大学课表_v1.5.apk` 传到安卓手机（或直接从 GitHub 仓库 `apk/` 目录下载）
+1. 把 `大学课表_v1.6.apk` 传到安卓手机（或直接从 GitHub 仓库 `apk/` 目录下载）
 2. 文件管理器点击安装，首次需允许「安装未知来源应用」
 3. 打开后允许通知权限；国产 ROM（小米/华为/OPPO/vivo 等）建议在系统设置中允许本应用「自启动」与「通知」，以保证课前提醒在后台准时触发
 4. 想用应用内自动更新，还需在系统设置里为本应用打开「安装未知应用」——首次点更新时应用会引导你去授权
@@ -234,13 +293,15 @@ app/src/main/java/com/xwt/schedule/
 ├─ App.java                     # Application，建通知渠道
 ├─ MainActivity.java            # 底部导航 + 四个页面（hide/show + commitNow）
 ├─ model/Course.java            # 课程模型与周次规则、JSON 序列化
-├─ data/CourseStore.java        # SharedPreferences 存储 + 示例课表 + 节假日/调休设置
+├─ data/CourseStore.java        # SharedPreferences 存储（含自动备份/恢复）+ 示例课表 + 设置
 ├─ util/TimeTable.java          # 11 节作息时间
 ├─ util/WeekUtil.java           # 学期/周次/日期换算
 ├─ util/ChinaHoliday.java       # 中国法定节假日与调休数据（官方通知）
 ├─ util/DayPlan.java            # 结合用户设置算出「某天上不上课、按周几上课」
 ├─ util/Palette.java            # 课程卡片配色
-├─ ui/ScheduleGridView.java     # 课表网格自定义 View（休/补角标、不放假列不加灰底）
+├─ ui/ScheduleGridView.java     # 课表网格自定义 View（休/补角标、重叠课合并成一张卡）
+├─ ui/CourseCardView.java       # 课程卡片：右上角折角 + 门数（同一时段多门课时）
+├─ ui/CourseDetailDialog.java   # 课程详情 / 同一时段多门课的列表弹窗
 ├─ ui/ScheduleFragment.java     # 课表页
 ├─ ui/TodayFragment.java        # 今日页
 ├─ ui/CourseListFragment.java   # 课程列表页
@@ -249,14 +310,17 @@ app/src/main/java/com/xwt/schedule/
 ├─ ui/CourseEditActivity.java   # 添加/编辑课程
 ├─ ui/WeekPickerDialog.java     # 周次选择器
 ├─ update/UpdateInfo.java       # update.json 解析与版本比较（可单测）
-├─ update/UpdateChecker.java    # 读取远端清单，多镜像依次尝试
-├─ update/UpdateInstaller.java  # 下载 apk（多镜像重试）并拉起安装器
+├─ update/UpdateChecker.java    # 读取远端清单，多镜像并行拉取取最新
+├─ update/UpdateInstaller.java  # 下载 apk（多镜像重试 + 四层完整性校验）并拉起安装器
 └─ notify/                      # 通知渠道、AlarmManager 调度、开机重建
 
 app/src/test/java/com/xwt/schedule/
 ├─ CourseLogicTest.java         # 周次规则、作息时间纯 JVM 单测
 ├─ HolidayLogicTest.java        # 节假日/调休数据纯 JVM 单测
-├─ UpdateLogicTest.java         # 更新清单解析、坏数据容错、镜像地址
+├─ UpdateLogicTest.java         # 更新清单解析、坏数据容错、镜像地址、多镜像选优
+├─ UpdateIntegrityTest.java     # 安装包完整性校验（截断/篡改/HTML 冒充）
+├─ DataPersistenceTest.java     # 课表数据持久化与损坏兜底（模拟重启）
+├─ FabLayoutTest.java           # 加课按钮的可见性与位置回归
 └─ AppRobolectricTest.java      # 界面与业务集成测试（Robolectric）
 
 update.json                     # 自动更新的版本清单（发布新版本时改这里）
@@ -376,3 +440,40 @@ apk/                            # 各版本安装包，供应用内下载
    空文件、文件不存在、只靠魔数通过；外加 `sha256()` 用标准测试向量
    （`"abc"` → `ba7816bf…`）验证实现本身。
    合计 **53 项测试全部通过**。
+
+## v1.6 变更
+
+**修正**
+
+1. **修复右下角加号按钮看不见。** 按钮原来在 Fragment 布局里，靠
+   `android:layout_marginBottom="92dp"` 躲底部导航栏，但同一行还写了简写
+   `android:layout_margin="20dp"` —— Android 的 `MarginLayoutParams` 只在没有
+   `layout_margin` 时才读单边 margin，简写把 92dp 整个吃掉了，实际底部只剩 20dp。
+   实测按钮矩形 `2264~2320`，导航栏从 `2284` 开始，**按钮被盖住 64%**。
+   现已移到 Activity 层，用 `@dimen/fab_bottom_margin` 显式定位，见上文专节。
+
+2. **同一时段多门课不再左右分栏。** 课表一列只有 40 多 dp 宽，切成两条后课程名
+   只剩两三个字，比不显示还糟。现在合并成一张整宽卡片，右上角画折角（褶皱）并标出门数，
+   点一下把该时段的全部课程列出来，再点某一门进详情。
+
+3. **课程详情弹窗重做。** 原先用 `setMessage()` 拼一段纯文本，一片白底加一坨黑字，
+   既看不出是哪门课也没有层次。现在是自定义 `Dialog`：顶部一条课程配色的色带放课程名，
+   下面按「时间 / 周次 / 教室 / 教师」分行，调休补课单独一条浅蓝提示条说明
+   「这门课为什么出现在这个星期」。
+
+4. **课表数据加了三层保险**，见上文「升级为什么不会丢课表」：
+   落盘前留上一版备份、启动时损坏自动回退、读不出来时绝不覆盖成空。
+
+5. **测试不再依赖真实日期。** `todayTabShowsFridayWeekOneCourses` 写死了
+   「第 1 周周五 2 节课」，2026-09-18 是绿的，第二天到周六就自己变成 0 挂掉了。
+   试过冻结时钟，但 Robolectric 4.10 默认 PAUSED looper 模式下
+   `SystemClock.setCurrentTimeMillis()` **返回 true 却根本不改时钟**（实测
+   `new Date()` 前后完全一致），`ShadowSystemClock` / `ShadowSystem` 也没有可用 setter。
+   所以改成按「今天实际生效的星期」造数据、用 `weekOfDate()` 这类纯函数验证，
+   并把「下一周」改成先退到第 1 周再前进，彻底与"今天几号"脱钩。
+
+**测试**
+
+6. 新增 `DataPersistenceTest`（9 项）、`FabLayoutTest`（3 项）、
+   重叠课程合并用例，以及 `UpdateIntegrityTest` 的补充。
+   合计 **66 项测试全部通过**。

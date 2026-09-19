@@ -82,16 +82,6 @@
         </FrameLayout>
     </LinearLayout>
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fab_add_course"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="20dp"
-        android:layout_marginBottom="92dp"
-        android:contentDescription="添加课程"
-        android:src="@drawable/ic_add"
-        app:backgroundTint="@color/primary"
-        app:tint="@color/white" />
+    <!-- 添加按钮已移到 activity_main.xml，见 fragment_schedule.xml 里的说明 -->
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

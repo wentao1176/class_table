@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      右下角「加课」按钮距底部的距离。
+      底部导航栏高 56dp（Material 默认的 ?attr/actionBarSize），再加 16dp 间隙。
+      应用不是 edge-to-edge，系统导航栏在窗口之外，所以这里不用再算系统 inset。
+      FabLayoutTest 会断言按钮底边不超过导航栏顶边，改这个值时会立刻发现。
+    -->
+    <dimen name="fab_bottom_margin">72dp</dimen>
+</resources>

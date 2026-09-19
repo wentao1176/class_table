@@ -1,4 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  添加按钮放在 Activity 层而不是各个 Fragment 里：
+  Fragment 的根布局铺满整屏（包括底部导航栏后面），它自己算不出导航栏有多高，
+  只能靠一个写死的 marginBottom 去躲 —— 换个机型、换个导航方式就会压住按钮。
+  放在这里，CoordinatorLayout 能按「inset edge」把按钮自动顶到导航栏上方。
+
+  另外注意：**不要**同时写 android:layout_margin 和 android:layout_marginBottom。
+  Android 的 MarginLayoutParams 只有在没有 layout_margin 时才去读单边 margin，
+  简写会把单边设置整个吃掉（这里原来就踩了这个坑，按钮被导航栏盖住了大半）。
+-->
 <androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -22,5 +32,30 @@
         app:itemTextColor="@color/nav_color"
         app:labelVisibilityMode="labeled"
         app:menu="@menu/bottom_nav" />
+
+    <!--
+      单边 margin 必须显式写全，不能和图省事的 android:layout_margin 混用：
+      Android 的 MarginLayoutParams 只有在**没有** layout_margin 时才去读
+      layout_marginBottom，简写会把单边值整个吃掉。这里原来就是
+      layout_margin="20dp" + layout_marginBottom="92dp"，结果底部只剩 20dp，
+      按钮被 56dp 高的导航栏盖住大半 —— 用户报的「加号看不见」就是这个。
+
+      也试过 CoordinatorLayout 的 layout_insetEdge + layout_dodgeInsetEdges，
+      但实测按钮位置一点没变（Robolectric 里量出来的矩形完全相同），
+      所以不用一个自己验证不了的机制，老老实实按导航栏高度 + 间隙来定位。
+      FabLayoutTest 会断言按钮底边不超过导航栏顶边。
+    -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fab_add"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="@dimen/fab_bottom_margin"
+        android:contentDescription="添加课程"
+        android:src="@drawable/ic_add"
+        app:backgroundTint="@color/primary"
+        app:elevation="6dp"
+        app:tint="@color/white" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

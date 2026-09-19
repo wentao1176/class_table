@@ -14,7 +14,6 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.xwt.schedule.MainActivity;
 import com.xwt.schedule.R;
 import com.xwt.schedule.data.CourseStore;
@@ -55,11 +54,17 @@ public class ScheduleFragment extends Fragment implements MainActivity.Refreshab
                         WeekUtil.currentWeek(store), displayWeek, w -> changeWeek(w))
                         .show(getChildFragmentManager(), "week"));
 
-        grid.setOnCourseClickListener(this::showCourseDetail);
+        grid.setOnCourseClickListener(new ScheduleGridView.OnCourseClickListener() {
+            @Override
+            public void onCourseClick(Course c) {
+                showCourseDetail(c);
+            }
 
-        FloatingActionButton fab = root.findViewById(R.id.fab_add);
-        fab.setOnClickListener(v ->
-                startActivity(new Intent(requireContext(), CourseEditActivity.class)));
+            @Override
+            public void onCoursesClick(java.util.List<Course> courses) {
+                CourseDetailDialog.showSlot(requireContext(), store, courses, displayWeek, actions);
+            }
+        });
 
         refresh();
         return root;
@@ -75,38 +80,21 @@ public class ScheduleFragment extends Fragment implements MainActivity.Refreshab
         refresh();
     }
 
-    private void showCourseDetail(Course c) {
-        boolean on = c.occursInWeek(displayWeek);
-        StringBuilder msg = new StringBuilder();
-        msg.append("时间：").append(c.weekdayText()).append(" ").append(c.sectionText()).append("\n");
-        msg.append("周次：").append(c.weekText(store.getTotalWeeks()));
-        if (!on) msg.append("（本周不上）");
-        msg.append("\n教室：").append(c.location == null || c.location.isEmpty() ? "未填写" : c.location);
-        msg.append("\n教师：").append(c.teacher == null || c.teacher.isEmpty() ? "未填写" : c.teacher);
-
-        // 若该门课所在的那一天是调休补课日，说明一下为什么会在别的星期出现
-        for (int col = 0; col < 7; col++) {
-            Calendar d = WeekUtil.dateOf(store, displayWeek, col);
-            if (DayPlan.effectiveDayOfWeek(store, d.getTime()) != c.day) continue;
-            String note = DayPlan.note(store, d.getTime());
-            if (!note.isEmpty()) {
-                msg.append("\n日期：").append(WeekUtil.format(d.getTime()))
-                        .append("（").append(note).append("）");
-            }
-            break;
+    /** 详情弹窗里的「编辑 / 删除」动作。 */
+    private final CourseDetailDialog.Actions actions = new CourseDetailDialog.Actions() {
+        @Override
+        public void onEdit(Course c) {
+            CourseDetailDialog.edit(requireContext(), c);
         }
 
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(c.name)
-                .setMessage(msg)
-                .setPositiveButton("编辑", (d, w) -> {
-                    Intent i = new Intent(requireContext(), CourseEditActivity.class);
-                    i.putExtra(CourseEditActivity.EXTRA_COURSE_ID, c.id);
-                    startActivity(i);
-                })
-                .setNegativeButton("关闭", null)
-                .setNeutralButton("删除", (d, w) -> confirmDelete(c))
-                .show();
+        @Override
+        public void onDelete(Course c) {
+            confirmDelete(c);
+        }
+    };
+
+    private void showCourseDetail(Course c) {
+        CourseDetailDialog.showDetail(requireContext(), store, c, displayWeek, actions);
     }
 
     private void confirmDelete(Course c) {

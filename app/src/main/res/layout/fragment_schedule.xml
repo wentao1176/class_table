@@ -103,17 +103,10 @@
         </ScrollView>
     </LinearLayout>
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fab_add"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="20dp"
-        android:layout_marginBottom="92dp"
-        android:contentDescription="添加课程"
-        android:src="@drawable/ic_add"
-        app:backgroundTint="@color/primary"
-        app:elevation="6dp"
-        app:tint="@color/white" />
+    <!--
+      添加按钮已移到 activity_main.xml：Fragment 的根布局铺满整屏（含底部导航栏后面），
+      在这里算不出导航栏高度，只能靠写死的 marginBottom 去躲，换机型就会压住。
+      Activity 层的 CoordinatorLayout 能用 inset edge 自动避开，见那边注释。
+    -->
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

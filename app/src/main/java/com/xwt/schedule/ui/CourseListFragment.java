@@ -16,7 +16,6 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.xwt.schedule.MainActivity;
 import com.xwt.schedule.R;
 import com.xwt.schedule.data.CourseStore;
@@ -46,9 +45,6 @@ public class CourseListFragment extends Fragment implements MainActivity.Refresh
         tvHolidayTip = root.findViewById(R.id.tv_holiday_tip);
         rv.setLayoutManager(new LinearLayoutManager(requireContext()));
 
-        FloatingActionButton fab = root.findViewById(R.id.fab_add_course);
-        fab.setOnClickListener(v ->
-                startActivity(new Intent(requireContext(), CourseEditActivity.class)));
         refresh();
         return root;
     }
